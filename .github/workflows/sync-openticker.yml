@@ -7,16 +7,22 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      # 1. 仅拉取主仓库代码，跳过子模块
+      # 1. 拉取主仓库代码（不拉子模块）
       - name: Checkout OpenTicker
         uses: actions/checkout@v4
         with:
           repository: Aether-Grid/openticker
           ref: main
           fetch-depth: 0
-          # 移除 submodules: 'recursive'，避免拉取不存在的子模块
 
-      # 2. 登录阿里云ACR（复用你已有的Secrets）
+      # 2. 关键：修改 Dockerfile，删除子模块相关命令
+      - name: Remove submodule commands from Dockerfile
+        run: |
+          # 删除所有包含 "git submodule" 的行
+          sed -i '/git submodule sync --recursive/d' Dockerfile
+          sed -i '/git submodule update --init --recursive/d' Dockerfile
+
+      # 3. 登录阿里云ACR
       - name: Login to Aliyun ACR
         uses: docker/login-action@v3
         with:
@@ -24,7 +30,7 @@ jobs:
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
 
-      # 3. 构建并推送到阿里云ACR（保持不变）
+      # 4. 构建并推送到ACR
       - name: Build and push OpenTicker image
         uses: docker/build-push-action@v5
         with:
