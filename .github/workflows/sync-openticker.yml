@@ -4,20 +4,30 @@ on:
   workflow_dispatch:
 
 jobs:
-  sync:
+  build-and-push:
     runs-on: ubuntu-latest
     steps:
+      # 1. 递归拉取代码（包含所有子模块，解决构建依赖）
+      - name: Checkout OpenTicker with submodules
+        uses: actions/checkout@v4
+        with:
+          repository: Aether-Grid/openticker
+          ref: main
+          submodules: 'recursive' # 关键：递归拉取子模块
+          fetch-depth: 0
+
+      # 2. 登录阿里云ACR（复用你已有的Secrets）
       - name: Login to Aliyun ACR
-        uses: docker/login-action@v4
+        uses: docker/login-action@v3
         with:
           registry: crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
 
-      - name: Pull, Tag, and Push Image
-        run: |
-          SOURCE_IMAGE="ghcr.io/aether-grid/openticker:latest"
-          TARGET_IMAGE="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/lrywen/openticker:latest"
-          docker pull $SOURCE_IMAGE
-          docker tag $SOURCE_IMAGE $TARGET_IMAGE
-          docker push $TARGET_IMAGE
+      # 3. 构建并推送到阿里云ACR
+      - name: Build and push OpenTicker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/lrywen/openticker:latest
