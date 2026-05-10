@@ -15,12 +15,40 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      # 2. 关键：修改 Dockerfile，删除子模块相关命令
-      - name: Remove submodule commands from Dockerfile
+      # 2. 关键：直接创建一个全新的、无语法问题的 Dockerfile，覆盖原文件
+      - name: Create clean Dockerfile
         run: |
-          # 删除所有包含 "git submodule" 的行
-          sed -i '/git submodule sync --recursive/d' Dockerfile
-          sed -i '/git submodule update --init --recursive/d' Dockerfile
+          cat > Dockerfile << 'EOF'
+          # 基础构建镜像
+          FROM rust:1.75-slim-bookworm AS builder
+          WORKDIR /usr/src/openticker
+
+          # 安装构建依赖（不包含子模块相关命令）
+          RUN apt-get update && apt-get install -y --no-install-recommends \
+              pkg-config libssl-dev libsqlite3-dev ca-certificates \
+              && rm -rf /var/lib/apt/lists/*
+
+          # 复制源码（不复制子模块）
+          COPY . .
+
+          # 构建 openticker-cli（跳过测试，避免依赖缺失）
+          RUN cargo build --release -p openticker-cli
+
+          # 运行时镜像
+          FROM debian:bookworm-slim
+          WORKDIR /app
+
+          # 安装运行依赖
+          RUN apt-get update && apt-get install -y --no-install-recommends \
+              ca-certificates libssl3 libsqlite3-0 \
+              && rm -rf /var/lib/apt/lists/*
+
+          # 复制构建好的二进制文件
+          COPY --from=builder /usr/src/openticker/target/release/openticker-cli /app/openticker-cli
+
+          # 启动命令
+          CMD ["/app/openticker-cli"]
+          EOF
 
       # 3. 登录阿里云ACR
       - name: Login to Aliyun ACR
