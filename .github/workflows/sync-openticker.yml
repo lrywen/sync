@@ -7,14 +7,14 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      # 1. 递归拉取代码（包含所有子模块，解决构建依赖）
-      - name: Checkout OpenTicker with submodules
+      # 1. 仅拉取主仓库代码，跳过子模块
+      - name: Checkout OpenTicker
         uses: actions/checkout@v4
         with:
           repository: Aether-Grid/openticker
           ref: main
-          submodules: 'recursive' # 关键：递归拉取子模块
           fetch-depth: 0
+          # 移除 submodules: 'recursive'，避免拉取不存在的子模块
 
       # 2. 登录阿里云ACR（复用你已有的Secrets）
       - name: Login to Aliyun ACR
@@ -24,7 +24,7 @@ jobs:
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
 
-      # 3. 构建并推送到阿里云ACR
+      # 3. 构建并推送到阿里云ACR（保持不变）
       - name: Build and push OpenTicker image
         uses: docker/build-push-action@v5
         with:
