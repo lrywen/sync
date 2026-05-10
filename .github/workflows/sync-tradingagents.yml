@@ -4,20 +4,40 @@ on:
   workflow_dispatch:
 
 jobs:
-  sync:
+  build-and-push:
     runs-on: ubuntu-latest
     steps:
+      # 1. 拉取代码
+      - name: Checkout TradingAgents-CN
+        uses: actions/checkout@v4
+        with:
+          repository: hsliuping/TradingAgents-CN
+          ref: main
+          fetch-depth: 0
+
+      # 2. 动态创建Dockerfile（解决项目无自带Dockerfile的问题）
+      - name: Create Dockerfile
+        run: |
+          cat > Dockerfile <<EOF
+          FROM python:3.10-slim
+          WORKDIR /app
+          COPY . .
+          RUN pip install --no-cache-dir -r requirements.txt
+          CMD ["python", "main.py"]
+          EOF
+
+      # 3. 登录阿里云ACR
       - name: Login to Aliyun ACR
-        uses: docker/login-action@v4
+        uses: docker/login-action@v3
         with:
           registry: crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
 
-      - name: Pull, Tag, and Push Image
-        run: |
-          SOURCE_IMAGE="ghcr.io/hsliuping/tradingagents-cn:latest"
-          TARGET_IMAGE="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/lrywen/tradingagents-cn:latest"
-          docker pull $SOURCE_IMAGE
-          docker tag $SOURCE_IMAGE $TARGET_IMAGE
-          docker push $TARGET_IMAGE
+      # 4. 构建并推送到阿里云ACR
+      - name: Build and push TradingAgents-CN image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/lrywen/tradingagents-cn:latest
