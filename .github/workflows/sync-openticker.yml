@@ -1,0 +1,23 @@
+name: Sync OpenTicker Image to Aliyun ACR
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to Aliyun ACR
+        uses: docker/login-action@v3
+        with:
+          registry: crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com
+          username: ${{ secrets.ALIYUN_USERNAME }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+
+      - name: Pull, Tag, and Push Image
+        run: |
+          SOURCE_IMAGE="ghcr.io/aether-grid/openticker:latest"
+          TARGET_IMAGE="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/lrywen/openticker:latest"
+          docker pull $SOURCE_IMAGE
+          docker tag $SOURCE_IMAGE $TARGET_IMAGE
+          docker push $TARGET_IMAGE
