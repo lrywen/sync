@@ -15,14 +15,18 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      # 2. 【新增】彻底移除对私有子模块的引用
-      - name: Remove private submodule from Cargo.toml
+      # 2. 【新增并完善】彻底移除对私有子模块的引用
+      - name: Remove private submodule from source code
         run: |
-          sed -i '/openticker-indicators/d' Cargo.toml
-          # 如果在 CLI 的 Cargo.toml 中也引用了，一并删除
-          sed -i '/openticker-indicators/d' crates/openticker-cli/Cargo.toml
+          # 从根 Cargo.toml 中删除 workspace members 里的引用
+          sed -i '/"crates\/openticker-indicators"/d' Cargo.toml
+          # 从 openticker-registry 的 Cargo.toml 中删除所有相关行
+          sed -i '/openticker-indicators/d' crates/openticker-registry/Cargo.toml
+          # 从 openticker-registry 的源码中，删除对私有模块的导入和调用
+          sed -i '/use openticker_indicators::/d' crates/openticker-registry/src/lib.rs
+          sed -i '/descriptors\.extend(openticker_indicators::indicator_descriptors())/d' crates/openticker-registry/src/lib.rs
 
-      # 3. 关键：直接创建一个全新的、无语法问题的 Dockerfile，覆盖原文件
+      # 3. 关键：创建一个指定构建参数的全新 Dockerfile
       - name: Create clean Dockerfile
         run: |
           cat > Dockerfile << 'EOF'
@@ -32,7 +36,8 @@ jobs:
               pkg-config libssl-dev libsqlite3-dev ca-certificates \
               && rm -rf /var/lib/apt/lists/*
           COPY . .
-          RUN cargo build --release -p openticker-cli
+          # 核心修复：明确排除 indicators 特性，跳过相关代码
+          RUN cargo build --release -p openticker-cli --no-default-features
 
           FROM debian:bookworm-slim
           WORKDIR /app
