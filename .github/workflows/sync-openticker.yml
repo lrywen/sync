@@ -7,7 +7,6 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      # 1. 拉取主仓库代码（不拉子模块）
       - name: Checkout OpenTicker
         uses: actions/checkout@v4
         with:
@@ -15,18 +14,20 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      # 2. 彻底清理源码中对私有子模块的引用
       - name: Remove private submodule from source code
         run: |
-          # 从根 Cargo.toml 的 workspace members 中删除子模块
           sed -i '/"crates\/openticker-indicators"/d' Cargo.toml
-          # 从 openticker-registry 的 Cargo.toml 中删除所有依赖行
           sed -i '/openticker-indicators/d' crates/openticker-registry/Cargo.toml
-          # 从 openticker-registry 源码中删除对私有模块的导入和调用
           sed -i '/use openticker_indicators::/d' crates/openticker-registry/src/lib.rs
           sed -i '/descriptors\.extend(openticker_indicators::indicator_descriptors())/d' crates/openticker-registry/src/lib.rs
 
-      # 3. 创建新的 Dockerfile（跳过私有子模块，并禁用默认 features）
+          # 补充空的 indicators 特性
+          if grep -q '\[features\]' crates/openticker-registry/Cargo.toml; then
+              sed -i '/\[features\]/a indicators = []' crates/openticker-registry/Cargo.toml
+          else
+              printf '\n[features]\nindicators = []\n' >> crates/openticker-registry/Cargo.toml
+          fi
+
       - name: Create clean Dockerfile
         run: |
           cat > Dockerfile << 'EOF'
@@ -36,7 +37,6 @@ jobs:
               pkg-config libssl-dev libsqlite3-dev ca-certificates \
               && rm -rf /var/lib/apt/lists/*
           COPY . .
-          # 关键修改：--no-default-features 避免启用 indicators 特性
           RUN cargo build --release -p openticker-cli --no-default-features
 
           FROM debian:bookworm-slim
@@ -48,7 +48,6 @@ jobs:
           CMD ["/app/openticker-cli"]
           EOF
 
-      # 4. 登录阿里云 ACR
       - name: Login to Aliyun ACR
         uses: docker/login-action@v3
         with:
@@ -56,7 +55,6 @@ jobs:
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
 
-      # 5. 构建并推送到 ACR
       - name: Build and push OpenTicker image
         uses: docker/build-push-action@v5
         with:
