@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout TradingAgents-CN
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hsliuping/TradingAgents-CN
           ref: main
@@ -39,10 +39,10 @@ jobs:
 
       # 关键修复：设置 Docker Buildx 以支持缓存导出
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build and push TradingAgents-CN image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
