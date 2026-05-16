@@ -7,28 +7,23 @@ jobs:
   sync-redis:
     runs-on: ubuntu-latest
     steps:
-      # 1. 登录 Docker Hub（使用 Access Token，避免 malformed header 错误）
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}   # 必须是 Personal Access Token，不是登录密码
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 2. 登录阿里云 ACR
       - name: Login to Aliyun ACR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
 
-      # 3. 拉取官方 Redis 镜像，打标签并推送到阿里云 ACR
       - name: Pull, tag and push Redis image
         run: |
-          # 可替换为其他版本，如 redis:7.2, redis:alpine 等
           SOURCE_IMAGE="redis:latest"
-          TARGET_IMAGE="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/lrywen/redis:latest"
-          
+          TARGET_IMAGE="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/${{ secrets.ALIYUN_NAMESPACE }}/redis:latest"
           docker pull $SOURCE_IMAGE
           docker tag $SOURCE_IMAGE $TARGET_IMAGE
           docker push $TARGET_IMAGE
