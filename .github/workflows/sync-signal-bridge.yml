@@ -7,13 +7,7 @@ jobs:
   sync-signal:
     runs-on: ubuntu-latest
     steps:
-      - name: Login to Mau.dev Registry
-        uses: docker/login-action@v4
-        with:
-          registry: dock.mau.dev
-          username: ${{ secrets.MAU_USERNAME }}
-          password: ${{ secrets.MAU_PASSWORD }}
-
+      # 1. 登录阿里云 ACR（推送目标需要认证）
       - name: Login to Aliyun ACR
         uses: docker/login-action@v4
         with:
@@ -21,6 +15,7 @@ jobs:
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
 
+      # 2. 拉取公共 Signal Bridge 镜像，打标签并推送到阿里云 ACR
       - name: Pull, tag and push Signal Bridge image
         run: |
           SOURCE_IMAGE="dock.mau.dev/mautrix/signal:latest"
