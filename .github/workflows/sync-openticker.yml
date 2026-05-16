@@ -14,42 +14,38 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      # 1. 移除私有子模块，补充空的 indicators 特性
-      - name: Remove private submodule from source code
+      - name: Remove private submodule and add empty indicators feature
         run: |
           sed -i '/"crates\/openticker-indicators"/d' Cargo.toml
           sed -i '/openticker-indicators/d' crates/openticker-registry/Cargo.toml
           sed -i '/use openticker_indicators::/d' crates/openticker-registry/src/lib.rs
           sed -i '/descriptors\.extend(openticker_indicators::indicator_descriptors())/d' crates/openticker-registry/src/lib.rs
-          # 补充空特性，避免 build.rs 报错缺失
           if grep -q '\[features\]' crates/openticker-registry/Cargo.toml; then
-              sed -i '/\[features\]/a indicators = []' crates/openticker-registry/Cargo.toml
+            sed -i '/\[features\]/a indicators = []' crates/openticker-registry/Cargo.toml
           else
-              printf '\n[features]\nindicators = []\n' >> crates/openticker-registry/Cargo.toml
+            printf '\n[features]\nindicators = []\n' >> crates/openticker-registry/Cargo.toml
           fi
 
-      # 2. 创建完整的多阶段 Dockerfile（包含前端构建）
-      - name: Create complete Dockerfile
+      - name: Create complete Dockerfile (Nuxt + Rust multi-stage)
         run: |
           cat > Dockerfile << 'DOCKER_EOF'
-          # ---------- 阶段1：构建 Nuxt 前端 ----------
+          # Stage 1: Build Nuxt frontend
           FROM node:22-alpine AS ui-builder
           WORKDIR /build/ui
           COPY crates/openticker-http/ui .
           RUN corepack enable && corepack prepare pnpm@latest --activate && pnpm install && pnpm build
 
-          # ---------- 阶段2：构建 Rust 后端 ----------
+          # Stage 2: Build Rust backend
           FROM rust:1.75-slim-bookworm AS builder
           WORKDIR /usr/src/openticker
           RUN apt-get update && apt-get install -y --no-install-recommends \
               pkg-config libssl-dev libsqlite3-dev ca-certificates \
               && rm -rf /var/lib/apt/lists/*
           COPY . .
-          # 将前端构建结果复制到后端期望的位置
           COPY --from=ui-builder /build/ui/.output crates/openticker-http/ui/.output
           RUN cargo build --release -p openticker-cli --no-default-features
 
-          # ---------- 阶段3：运行时镜像 ----------
+          # Stage 3: Runtime image
           FROM debian:bookworm-slim
           WORKDIR /app
           RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -59,16 +55,28 @@ jobs:
           CMD ["/app/openticker-cli"]
           DOCKER_EOF
 
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Login to Aliyun ACR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
 
+      # 关键修复：设置 Docker Buildx 以支持缓存导出
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
       - name: Build and push OpenTicker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
-          tags: crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/lrywen/openticker:latest
+          tags: crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/${{ secrets.ALIYUN_NAMESPACE }}/openticker:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
