@@ -20,7 +20,7 @@ jobs:
 
       - name: Clone sytone/obsidian-remote
         run: |
-          git clone https://github.com/sytone/obsidian-remote.git
+          git clone --depth 1 --branch main https://github.com/sytone/obsidian-remote.git
           cd obsidian-remote
           git checkout main
 
@@ -62,9 +62,10 @@ jobs:
           # Set up environment
           ENV PATH="/home/kasm-user/.local/bin:${PATH}"
 
-          # Launch Obsidian on startup
+          # Launch Obsidian on startup - FIXED: create autostart directory first
           USER kasm-user
-          RUN echo '#!/bin/bash\nobsidian' > /home/kasm-user/.config/autostart/obsidian.desktop && \
+          RUN mkdir -p /home/kasm-user/.config/autostart && \
+              echo '#!/bin/bash\nobsidian' > /home/kasm-user/.config/autostart/obsidian.desktop && \
               chmod +x /home/kasm-user/.config/autostart/obsidian.desktop
 
           # Expose ports
