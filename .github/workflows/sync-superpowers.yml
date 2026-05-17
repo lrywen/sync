@@ -1,0 +1,50 @@
+name: Sync Superpowers Image to Aliyun ACR
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Superpowers
+        uses: actions/checkout@v5
+        with:
+          repository: obra/superpowers
+          ref: main
+          fetch-depth: 0
+
+      - name: Create Dockerfile
+        run: |
+          cat > Dockerfile <<EOF
+          FROM alpine:latest
+          WORKDIR /superpowers
+          COPY . .
+          RUN ls -la
+          CMD ["/bin/sh", "-c", "echo 'Superpowers skills are available in /superpowers'; tail -f /dev/null"]
+          EOF
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to Aliyun ACR
+        uses: docker/login-action@v4
+        with:
+          registry: crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com
+          username: ${{ secrets.ALIYUN_USERNAME }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push Superpowers image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/${{ secrets.ALIYUN_NAMESPACE }}/superpowers:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
