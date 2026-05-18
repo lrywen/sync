@@ -20,10 +20,16 @@ jobs:
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
 
-      - name: Pull, tag and push Redis image
+      - name: Pull, tag and push Redis images (latest & alpine)
         run: |
-          SOURCE_IMAGE="redis:latest"
-          TARGET_IMAGE="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/${{ secrets.ALIYUN_NAMESPACE }}/redis:latest"
-          docker pull $SOURCE_IMAGE
-          docker tag $SOURCE_IMAGE $TARGET_IMAGE
-          docker push $TARGET_IMAGE
+          REGISTRY="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/${{ secrets.ALIYUN_NAMESPACE }}"
+          
+          # 同步 latest 版本
+          docker pull redis:latest
+          docker tag redis:latest $REGISTRY/redis:latest
+          docker push $REGISTRY/redis:latest
+          
+          # 同步 alpine 版本
+          docker pull redis:alpine
+          docker tag redis:alpine $REGISTRY/redis:alpine
+          docker push $REGISTRY/redis:alpine
