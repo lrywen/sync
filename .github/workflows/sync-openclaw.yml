@@ -21,26 +21,22 @@ jobs:
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
 
-      - name: Resolve version and sync image
+      - name: Pull latest OpenClaw image and extract real version
         run: |
-          # 先获取 latest 标签指向的真实日历版本号（纯数字，不带 v 前缀）
-          RAW_VERSION=$(docker pull --platform linux/amd64 ghcr.io/openclaw/openclaw:latest > /dev/null 2>&1 && \
-                         docker image inspect --format='{{index .RepoDigests 0}}' ghcr.io/openclaw/openclaw:latest | \
-                         sed 's/.*://' | cut -d '@' -f1)
-          
-          # 如果无法解析，设置一个默认的日历版本号
-          if [ -z "$RAW_VERSION" ]; then
-            RAW_VERSION="2026.5.19"
-          fi
-          
-          echo "Syncing OpenClaw version: $RAW_VERSION"
-          
-          # 使用正确的日历版本号标签拉取镜像（无 'v' 前缀）
-          SOURCE_IMAGE="ghcr.io/openclaw/openclaw:${RAW_VERSION}"
-          TARGET_LATEST="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/${{ secrets.ALIYUN_NAMESPACE }}/openclaw:latest"
-          TARGET_VERSIONED="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/${{ secrets.ALIYUN_NAMESPACE }}/openclaw:${RAW_VERSION}"
-          
+          # 拉取最新的镜像（使用 latest 标签）
+          SOURCE_IMAGE="ghcr.io/openclaw/openclaw:latest"
           docker pull --platform linux/amd64 $SOURCE_IMAGE
+          
+          # 从镜像的 RepoTags 中提取真实的版本号（例如 ghcr.io/openclaw/openclaw:2026.5.19）
+          FULL_TAG=$(docker image inspect $SOURCE_IMAGE --format='{{index .RepoTags 0}}')
+          REAL_VERSION=$(echo $FULL_TAG | sed 's/.*://')
+          echo "Detected real version: $REAL_VERSION"
+          
+          # 设置目标镜像名称（阿里云 ACR）
+          TARGET_LATEST="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/${{ secrets.ALIYUN_NAMESPACE }}/openclaw:latest"
+          TARGET_VERSIONED="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/${{ secrets.ALIYUN_NAMESPACE }}/openclaw:${REAL_VERSION}"
+          
+          # 打标签并推送
           docker tag $SOURCE_IMAGE $TARGET_LATEST
           docker tag $SOURCE_IMAGE $TARGET_VERSIONED
           docker push $TARGET_LATEST
