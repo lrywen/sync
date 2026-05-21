@@ -21,11 +21,27 @@ jobs:
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
 
-      - name: Pull, Tag, and Push Image
+      - name: Resolve version and sync image
         run: |
-          OPENCLAW_VERSION="2026.5.19"      # 替换为目标具体版本号
-          SOURCE_IMAGE="ghcr.io/openclaw/openclaw:${OPENCLAW_VERSION}"
-          TARGET_IMAGE="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/${{ secrets.ALIYUN_NAMESPACE }}/openclaw:latest"
-          docker pull $SOURCE_IMAGE
-          docker tag $SOURCE_IMAGE $TARGET_IMAGE
-          docker push $TARGET_IMAGE
+          # 先获取 latest 标签指向的真实日历版本号（纯数字，不带 v 前缀）
+          RAW_VERSION=$(docker pull --platform linux/amd64 ghcr.io/openclaw/openclaw:latest > /dev/null 2>&1 && \
+                         docker image inspect --format='{{index .RepoDigests 0}}' ghcr.io/openclaw/openclaw:latest | \
+                         sed 's/.*://' | cut -d '@' -f1)
+          
+          # 如果无法解析，设置一个默认的日历版本号
+          if [ -z "$RAW_VERSION" ]; then
+            RAW_VERSION="2026.5.19"
+          fi
+          
+          echo "Syncing OpenClaw version: $RAW_VERSION"
+          
+          # 使用正确的日历版本号标签拉取镜像（无 'v' 前缀）
+          SOURCE_IMAGE="ghcr.io/openclaw/openclaw:${RAW_VERSION}"
+          TARGET_LATEST="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/${{ secrets.ALIYUN_NAMESPACE }}/openclaw:latest"
+          TARGET_VERSIONED="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/${{ secrets.ALIYUN_NAMESPACE }}/openclaw:${RAW_VERSION}"
+          
+          docker pull --platform linux/amd64 $SOURCE_IMAGE
+          docker tag $SOURCE_IMAGE $TARGET_LATEST
+          docker tag $SOURCE_IMAGE $TARGET_VERSIONED
+          docker push $TARGET_LATEST
+          docker push $TARGET_VERSIONED
