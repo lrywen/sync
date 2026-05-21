@@ -21,29 +21,10 @@ jobs:
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
 
-      - name: Pull latest OpenClaw image
+      - name: Pull, Tag, and Push Image
         run: |
-          docker pull --platform linux/amd64 ghcr.io/openclaw/openclaw:latest
-
-      - name: Push as latest to Aliyun ACR
-        run: |
-          TARGET_LATEST="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/${{ secrets.ALIYUN_NAMESPACE }}/openclaw:latest"
-          docker tag ghcr.io/openclaw/openclaw:latest $TARGET_LATEST
-          docker push $TARGET_LATEST
-
-      - name: Extract real version and push versioned tag
-        run: |
-          # 方法：从 ghcr.io 的 latest 镜像的 RepoTags 中提取版本号
-          REAL_VERSION=$(docker image inspect ghcr.io/openclaw/openclaw:latest --format='{{range .RepoTags}}{{.}}{{"\n"}}{{end}}' | grep -oP '(?<=ghcr.io/openclaw/openclaw:)[^ ]+' | head -1)
-          
-          # 如果提取失败，使用当前日期作为 fallback 版本号（例如 2026.5.21）
-          if [ -z "$REAL_VERSION" ]; then
-            REAL_VERSION=$(date +'%Y.%-m.%-d')
-            echo "Failed to extract real version, using fallback: $REAL_VERSION"
-          else
-            echo "Extracted real version: $REAL_VERSION"
-          fi
-          
-          TARGET_VERSIONED="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/${{ secrets.ALIYUN_NAMESPACE }}/openclaw:${REAL_VERSION}"
-          docker tag ghcr.io/openclaw/openclaw:latest $TARGET_VERSIONED
-          docker push $TARGET_VERSIONED
+          SOURCE_IMAGE="ghcr.io/openclaw/openclaw:latest"
+          TARGET_IMAGE="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/${{ secrets.ALIYUN_NAMESPACE }}/openclaw:latest"
+          docker pull $SOURCE_IMAGE
+          docker tag $SOURCE_IMAGE $TARGET_IMAGE
+          docker push $TARGET_IMAGE
