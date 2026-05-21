@@ -23,7 +23,8 @@ jobs:
 
       - name: Pull, Tag, and Push Image
         run: |
-          SOURCE_IMAGE="ghcr.io/openclaw/openclaw:latest"
+          OPENCLAW_VERSION="v2026.5.19"      # 替换为目标具体版本号
+          SOURCE_IMAGE="ghcr.io/openclaw/openclaw:${OPENCLAW_VERSION}"
           TARGET_IMAGE="crpi-cir91a122bvjkhqh.cn-shanghai.personal.cr.aliyuncs.com/${{ secrets.ALIYUN_NAMESPACE }}/openclaw:latest"
           docker pull $SOURCE_IMAGE
           docker tag $SOURCE_IMAGE $TARGET_IMAGE
