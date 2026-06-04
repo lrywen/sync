@@ -14,42 +14,35 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Create Multi-stage Dockerfile with patch
+      - name: Create Dockerfile
         run: |
           cat > Dockerfile << 'DOCKER_EOF'
           # ---------- Stage 1: Build the Rust binary ----------
           FROM rust:1.88-slim-bookworm AS builder
 
-          # Install dependencies for building
           RUN apt-get update && apt-get install -y --no-install-recommends \
               pkg-config libssl-dev git \
               && rm -rf /var/lib/apt/lists/*
 
-          WORKDIR /usr/src/claw-code
-
-          # Copy the entire repository
-          COPY . .
-
-          # Patch unstable Duration API (now inside the correct WORKDIR)
-          RUN find crates -name '*.rs' -exec sed -i 's/Duration::from_hours(\([^)]*\))/Duration::from_secs((\1) * 3600)/g' {} \; && \
-              find crates -name '*.rs' -exec sed -i 's/Duration::from_minutes(\([^)]*\))/Duration::from_secs((\1) * 60)/g' {} \;
-
-          # Build the Rust workspace in release mode
+          # 关键修正：进入项目核心的 Rust 工作区目录
           WORKDIR /usr/src/claw-code/rust
+
+          # 复制整个 Rust 工作区 (Cargo.toml 和所有 crates)
+          COPY rust/ ./
+
+          # 构建 Rust 工作区
           RUN cargo build --release --workspace
 
           # ---------- Stage 2: Create the runtime image ----------
           FROM debian:bookworm-slim
 
-          # Install runtime dependencies
           RUN apt-get update && apt-get install -y --no-install-recommends \
               ca-certificates libssl3 \
               && rm -rf /var/lib/apt/lists/*
 
-          # Copy the built binary from the builder stage
+          # 从构建阶段复制最终的二进制文件
           COPY --from=builder /usr/src/claw-code/rust/target/release/claw /usr/local/bin/claw
 
-          # Set the entrypoint
           ENTRYPOINT ["/usr/local/bin/claw"]
           DOCKER_EOF
 
